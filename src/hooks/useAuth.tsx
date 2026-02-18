@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  checkSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,19 +33,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
     setProfile(data as Profile | null);
-
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
+    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', userId);
     setIsAdmin(roles?.some((r: any) => r.role === 'admin') ?? false);
   };
+
+  const checkSubscription = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      if (!error && data) {
+        // Refresh profile after subscription check updates it
+        if (user) await fetchProfile(user.id);
+      }
+    } catch (e) {
+      console.error('Subscription check failed:', e);
+    }
+  }, [user]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
@@ -75,14 +80,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Check subscription on login and periodically
+  useEffect(() => {
+    if (user) {
+      checkSubscription();
+      const interval = setInterval(checkSubscription, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user, checkSubscription]);
+
   const signUp = async (email: string, password: string, displayName?: string) => {
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: displayName || email },
-        emailRedirectTo: window.location.origin,
-      },
+      email, password,
+      options: { data: { display_name: displayName || email }, emailRedirectTo: window.location.origin },
     });
     return { error: error as Error | null };
   };
@@ -94,14 +104,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setIsAdmin(false);
+    setUser(null); setSession(null); setProfile(null); setIsAdmin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isAdmin, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, isAdmin, loading, signUp, signIn, signOut, refreshProfile, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );
