@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { CV, CVContent, TEMPLATE_LABELS, TemplateName } from '@/types/cv';
+import { CV, CVContent, TEMPLATE_LABELS, TemplateName, DEFAULT_CV_CONTENT } from '@/types/cv';
 import { toast } from 'sonner';
-import { Plus, Edit, Copy, Trash2, Download, Share2, LogOut, FileText, MoreVertical, Shield, Crown } from 'lucide-react';
+import { Plus, Edit, Copy, Trash2, Download, Share2, LogOut, FileText, MoreVertical, Shield, Crown, Loader2, Sparkles } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { motion } from 'framer-motion';
 
@@ -14,6 +14,8 @@ const Dashboard = () => {
   const { user, profile, isAdmin, signOut, checkSubscription } = useAuth();
   const [cvs, setCvs] = useState<CV[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const onboardingChecked = useRef(false);
   const navigate = useNavigate();
 
   const fetchCVs = async () => {
@@ -29,6 +31,49 @@ const Dashboard = () => {
   };
 
   useEffect(() => { fetchCVs(); }, [user]);
+
+  // Auto-generate AI prefilled CV for new signups
+  useEffect(() => {
+    if (!user || onboardingChecked.current || loading) return;
+    onboardingChecked.current = true;
+    const field = localStorage.getItem('cvcraft_onboarding_field');
+    const name = localStorage.getItem('cvcraft_onboarding_name');
+    if (!field) return;
+    localStorage.removeItem('cvcraft_onboarding_field');
+    localStorage.removeItem('cvcraft_onboarding_name');
+    
+    (async () => {
+      setGenerating(true);
+      try {
+        const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-cv-content', {
+          body: { field, name: name || 'Alex Johnson' },
+        });
+        if (aiError) throw aiError;
+        
+        const content = {
+          ...DEFAULT_CV_CONTENT,
+          ...aiData.content,
+          section_order: DEFAULT_CV_CONTENT.section_order,
+          section_visibility: DEFAULT_CV_CONTENT.section_visibility,
+        };
+        
+        const { data: cvData, error: cvError } = await supabase
+          .from('cvs')
+          .insert({ user_id: user.id, title: `${field} CV`, content: content as any })
+          .select()
+          .single();
+        
+        if (cvError) throw cvError;
+        toast.success('Your AI-generated CV is ready! 🎉');
+        navigate(`/editor/${(cvData as any).id}`);
+      } catch (e) {
+        console.error('Onboarding CV generation failed:', e);
+        toast.error('Could not generate CV automatically. Create one manually!');
+        setGenerating(false);
+        fetchCVs();
+      }
+    })();
+  }, [user, loading]);
 
   const createCV = async () => {
     if (!user) return;
@@ -147,7 +192,18 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {loading ? (
+        {generating ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="relative">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <Sparkles className="h-5 w-5 text-primary absolute -top-1 -right-1 animate-pulse" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-semibold text-lg">Generating your CV with AI...</h3>
+              <p className="text-sm text-muted-foreground mt-1">Crafting a professional CV tailored to your field</p>
+            </div>
+          </div>
+        ) : loading ? (
           <div className="flex justify-center py-20">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
