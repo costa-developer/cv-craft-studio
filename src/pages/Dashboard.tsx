@@ -6,12 +6,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CV, CVContent, TEMPLATE_LABELS, TemplateName } from '@/types/cv';
 import { toast } from 'sonner';
-import { Plus, Edit, Copy, Trash2, Download, Share2, LogOut, FileText, MoreVertical, Shield } from 'lucide-react';
+import { Plus, Edit, Copy, Trash2, Download, Share2, LogOut, FileText, MoreVertical, Shield, Crown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { motion } from 'framer-motion';
 
 const Dashboard = () => {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, signOut, checkSubscription } = useAuth();
   const [cvs, setCvs] = useState<CV[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -74,12 +74,38 @@ const Dashboard = () => {
         body: { cvId: cv.id },
       });
       if (res.error) throw res.error;
-      const blob = new Blob([res.data], { type: 'application/pdf' });
+      // The function returns HTML, open it in a new tab for printing
+      const blob = new Blob([res.data], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `${cv.title}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      window.open(url, '_blank');
     } catch { toast.error('PDF generation failed'); }
   };
+
+  const handleUpgrade = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout');
+      if (error) throw error;
+      if (data?.url) window.open(data.url, '_blank');
+    } catch { toast.error('Failed to start checkout'); }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      if (data?.url) window.open(data.url, '_blank');
+    } catch { toast.error('Failed to open subscription management'); }
+  };
+
+  // Check for upgrade success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgraded') === 'true') {
+      toast.success('Welcome to Pro! 🎉');
+      checkSubscription();
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,7 +137,14 @@ const Dashboard = () => {
               {profile?.subscription_status === 'free' ? 'Free Plan · 1 CV' : 'Pro Plan · Unlimited CVs'}
             </p>
           </div>
-          <Button onClick={createCV}><Plus className="h-4 w-4 mr-1" /> New CV</Button>
+          <div className="flex items-center gap-3">
+            {profile?.subscription_status === 'free' ? (
+              <Button variant="outline" onClick={handleUpgrade}><Crown className="h-4 w-4 mr-1" /> Upgrade to Pro</Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={handleManageSubscription}>Manage Subscription</Button>
+            )}
+            <Button onClick={createCV}><Plus className="h-4 w-4 mr-1" /> New CV</Button>
+          </div>
         </div>
 
         {loading ? (
