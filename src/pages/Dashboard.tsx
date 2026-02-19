@@ -112,18 +112,28 @@ const Dashboard = () => {
     else { toast.success(cv.is_public ? 'Sharing disabled' : 'Public link created'); fetchCVs(); }
   };
 
-  const downloadPDF = async (cv: CV) => {
-    toast.info('Generating PDF...');
+  const downloadCV = async (cv: CV, format: 'pdf' | 'docx' = 'pdf') => {
+    toast.info(`Generating ${format.toUpperCase()}...`);
     try {
       const res = await supabase.functions.invoke('generate-pdf', {
-        body: { cvId: cv.id },
+        body: { cvId: cv.id, format },
       });
       if (res.error) throw res.error;
-      // The function returns HTML, open it in a new tab for printing
-      const blob = new Blob([res.data], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } catch { toast.error('PDF generation failed'); }
+      
+      if (format === 'docx') {
+        const blob = new Blob([res.data], { type: 'application/vnd.ms-word' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${cv.title || 'CV'}.doc`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const blob = new Blob([res.data], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
+    } catch { toast.error(`${format.toUpperCase()} generation failed`); }
   };
 
   const handleUpgrade = async () => {
@@ -238,7 +248,8 @@ const Dashboard = () => {
                         <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                           <DropdownMenuItem onClick={() => navigate(`/editor/${cv.id}`)}><Edit className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => duplicateCV(cv)}><Copy className="h-4 w-4 mr-2" /> Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => downloadPDF(cv)}><Download className="h-4 w-4 mr-2" /> Download PDF</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadCV(cv, 'pdf')}><Download className="h-4 w-4 mr-2" /> Download PDF</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadCV(cv, 'docx')}><FileText className="h-4 w-4 mr-2" /> Download DOCX</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => togglePublic(cv)}><Share2 className="h-4 w-4 mr-2" /> {cv.is_public ? 'Disable Sharing' : 'Share'}</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => deleteCV(cv.id)}><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
                         </DropdownMenuContent>

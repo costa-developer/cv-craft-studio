@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { CVContent, SectionKey, ExperienceItem, ProjectItem, EducationItem, CertificationItem, LinkItem, LanguageItem } from '@/types/cv';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Trash2, GripVertical, X, Sparkles, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, X, Sparkles, BarChart3, Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +31,30 @@ export const EditorPanel = ({ editor }: EditorPanelProps) => {
   const [skillInput, setSkillInput] = useState('');
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [strengthScore, setStrengthScore] = useState<{ score: number; suggestions: string[] } | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please upload an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
+    
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    
+    setPhotoUploading(true);
+    const ext = file.name.split('.').pop();
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    
+    const { error } = await supabase.storage.from('cv-photos').upload(path, file, { upsert: true });
+    if (error) { toast.error('Upload failed'); setPhotoUploading(false); return; }
+    
+    const { data: urlData } = supabase.storage.from('cv-photos').getPublicUrl(path);
+    updatePersonal('photo_url', urlData.publicUrl);
+    toast.success('Photo uploaded!');
+    setPhotoUploading(false);
+  };
 
   const updatePersonal = (field: string, value: string) => {
     updateContent({ personal: { ...content.personal, [field]: value } });
@@ -212,12 +236,37 @@ export const EditorPanel = ({ editor }: EditorPanelProps) => {
           <AccordionItem value="personal" className="border rounded-xl px-4">
             <AccordionTrigger className="text-sm font-semibold">Personal Info</AccordionTrigger>
             <AccordionContent className="space-y-3 pb-4">
-              <div className="grid grid-cols-2 gap-3">
+              {/* Photo upload */}
+              <div className="flex items-center gap-4 mb-2">
+                <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-border group">
+                  {content.personal.photo_url ? (
+                    <img src={content.personal.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="h-6 w-6 text-muted-foreground" />
+                  )}
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    {photoUploading ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Camera className="h-4 w-4 text-white" />}
+                  </button>
+                </div>
+                <div className="flex-1">
+                  <Button size="sm" variant="outline" onClick={() => photoInputRef.current?.click()} disabled={photoUploading}>
+                    {photoUploading ? 'Uploading...' : content.personal.photo_url ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  {content.personal.photo_url && (
+                    <Button size="sm" variant="ghost" className="ml-2 text-destructive" onClick={() => updatePersonal('photo_url', '')}>Remove</Button>
+                  )}
+                </div>
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label className="text-xs">Full Name</Label><Input value={content.personal.name} onChange={e => updatePersonal('name', e.target.value)} placeholder="John Doe" /></div>
                 <div><Label className="text-xs">Job Title</Label><Input value={content.personal.title} onChange={e => updatePersonal('title', e.target.value)} placeholder="Software Developer" /></div>
                 <div><Label className="text-xs">Email</Label><Input value={content.personal.email} onChange={e => updatePersonal('email', e.target.value)} placeholder="john@example.com" /></div>
                 <div><Label className="text-xs">Phone</Label><Input value={content.personal.phone} onChange={e => updatePersonal('phone', e.target.value)} placeholder="+1 234 567 890" /></div>
-                <div className="col-span-2"><Label className="text-xs">Location</Label><Input value={content.personal.location} onChange={e => updatePersonal('location', e.target.value)} placeholder="New York, NY" /></div>
+                <div className="sm:col-span-2"><Label className="text-xs">Location</Label><Input value={content.personal.location} onChange={e => updatePersonal('location', e.target.value)} placeholder="New York, NY" /></div>
               </div>
             </AccordionContent>
           </AccordionItem>
