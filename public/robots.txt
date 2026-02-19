@@ -12,3 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /editor
+Disallow: /admin
+
+Sitemap: https://cvcraft.app/sitemap.xml
