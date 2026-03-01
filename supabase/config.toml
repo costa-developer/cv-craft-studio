@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-cv-content]
 verify_jwt = false
+
+[functions.ats-tailor]
+verify_jwt = false
