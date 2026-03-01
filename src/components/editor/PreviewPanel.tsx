@@ -27,15 +27,32 @@ export const PreviewPanel = ({ content, template, accentColor }: PreviewPanelPro
   return (
     <div className="h-full overflow-y-auto bg-muted/30 p-3 md:p-6 flex justify-center">
       <div
-        className="bg-white shadow-xl rounded-sm"
         style={{
           width: '210mm',
-          minHeight: '297mm',
           transform: `scale(${isMobile ? 0.45 : 0.7})`,
           transformOrigin: 'top center',
         }}
       >
-        <TemplateComponent content={content} accentColor={accentColor} />
+        {/* 
+          The template content flows naturally. We use CSS columns simulation:
+          each "page" is 297mm tall. Content overflows into visual pages via
+          a repeating background that draws page boundaries.
+        */}
+        <div
+          className="bg-white shadow-xl relative"
+          style={{
+            width: '210mm',
+            minHeight: '297mm',
+            /* A4 page visual separator via repeating gradient */
+            backgroundImage: 'linear-gradient(to bottom, white calc(297mm - 1px), #e5e7eb calc(297mm - 1px), #e5e7eb 297mm)',
+            backgroundSize: '100% 297mm',
+            backgroundRepeat: 'repeat-y',
+            /* Simulated page shadow every 297mm */
+            boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
+          }}
+        >
+          <TemplateComponent content={content} accentColor={accentColor} />
+        </div>
       </div>
     </div>
   );
