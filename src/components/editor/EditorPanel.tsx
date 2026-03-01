@@ -8,7 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Plus, Trash2, GripVertical, X, Sparkles, BarChart3, Camera, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Trash2, GripVertical, X, Sparkles, BarChart3, Camera, Loader2, Target, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +33,9 @@ export const EditorPanel = ({ editor }: EditorPanelProps) => {
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [strengthScore, setStrengthScore] = useState<{ score: number; suggestions: string[] } | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [atsDialogOpen, setAtsDialogOpen] = useState(false);
+  const [jobDescription, setJobDescription] = useState('');
+  const [atsResult, setAtsResult] = useState<{ ats_match_score?: number; keywords_added?: string[] } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,6 +193,33 @@ export const EditorPanel = ({ editor }: EditorPanelProps) => {
     setAiLoading(null);
   };
 
+  const tailorForATS = async () => {
+    if (!isPro) { toast.error('ATS Tailoring requires Pro plan'); return; }
+    if (!jobDescription.trim() || jobDescription.trim().length < 20) { toast.error('Please paste a meaningful job description'); return; }
+    setAiLoading('ats');
+    try {
+      const { data, error } = await supabase.functions.invoke('ats-tailor', {
+        body: { jobDescription, currentCV: content },
+      });
+      if (error) throw error;
+      const { ats_match_score, keywords_added, ...cvContent } = data.result;
+      updateContent({
+        personal: cvContent.personal || content.personal,
+        summary: cvContent.summary || content.summary,
+        skills: cvContent.skills || content.skills,
+        experience: cvContent.experience || content.experience,
+        projects: cvContent.projects || content.projects,
+        education: cvContent.education || content.education,
+        certifications: cvContent.certifications || content.certifications,
+        links: cvContent.links || content.links,
+        languages: cvContent.languages || content.languages,
+      });
+      setAtsResult({ ats_match_score, keywords_added });
+      toast.success(`CV tailored! ATS Match: ${ats_match_score}%`);
+    } catch { toast.error('Failed to tailor CV for ATS'); }
+    setAiLoading(null);
+  };
+
   const sectionLabels: Record<SectionKey, string> = {
     personal: 'Personal Info', summary: 'Professional Summary', skills: 'Skills',
     experience: 'Work Experience', projects: 'Projects', education: 'Education',
@@ -205,7 +236,56 @@ export const EditorPanel = ({ editor }: EditorPanelProps) => {
         <Button size="sm" variant="outline" onClick={getStrengthScore} disabled={aiLoading === 'strength'}>
           <BarChart3 className="h-3 w-3 mr-1" /> {aiLoading === 'strength' ? 'Scoring...' : 'Strength Score'}
         </Button>
+        <Button size="sm" variant="default" onClick={() => { setAtsDialogOpen(true); setAtsResult(null); }} disabled={!!aiLoading}>
+          <Target className="h-3 w-3 mr-1" /> ATS Tailor
+        </Button>
       </div>
+
+      {/* ATS Result Banner */}
+      {atsResult && (
+        <Card className="border-primary/30 bg-primary/5"><CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`text-2xl font-bold ${(atsResult.ats_match_score ?? 0) >= 80 ? 'text-primary' : (atsResult.ats_match_score ?? 0) >= 50 ? 'text-yellow-600' : 'text-destructive'}`}>
+              {atsResult.ats_match_score ?? 0}%
+            </div>
+            <span className="text-sm font-medium">ATS Match Score</span>
+          </div>
+          {atsResult.keywords_added && atsResult.keywords_added.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Keywords incorporated:</p>
+              <div className="flex flex-wrap gap-1">
+                {atsResult.keywords_added.map((kw, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs gap-1"><CheckCircle2 className="h-2.5 w-2.5" />{kw}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent></Card>
+      )}
+
+      {/* ATS Tailor Dialog */}
+      <Dialog open={atsDialogOpen} onOpenChange={setAtsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> ATS-Optimized CV Tailoring</DialogTitle>
+            <DialogDescription>Paste a job description and we'll automatically optimize your CV to match the role and pass ATS filters.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={jobDescription}
+            onChange={e => setJobDescription(e.target.value)}
+            placeholder="Paste the full job description here..."
+            rows={10}
+            className="resize-none"
+          />
+          <p className="text-xs text-muted-foreground">Your existing experience stays intact — we optimize wording, keywords, and order for ATS compatibility.</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAtsDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => { setAtsDialogOpen(false); tailorForATS(); }} disabled={aiLoading === 'ats' || jobDescription.trim().length < 20}>
+              {aiLoading === 'ats' ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Tailoring...</> : <><Target className="h-4 w-4 mr-1" /> Tailor My CV</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {strengthScore && (
         <Card><CardContent className="p-4">
