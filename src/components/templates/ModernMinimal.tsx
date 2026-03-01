@@ -11,7 +11,7 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
   };
 
   return (
-    <div className="p-12 font-sans text-[11px] leading-relaxed" style={{ color: '#2D2D2D', fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+    <div className="p-12 font-sans text-[11px] leading-relaxed" style={{ color: '#2D2D2D', fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", minHeight: '297mm' }}>
       {/* Header — elegant centered with subtle accent line */}
       {vis.personal && (
         <header className="text-center mb-10 relative">
@@ -40,10 +40,10 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
       )}
 
       {vis.experience && content.experience.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}` }}>Experience</h2>
+        <section className="mb-8" style={{ breakInside: 'auto' }}>
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}`, breakAfter: 'avoid' }}>Experience</h2>
           {content.experience.map(exp => (
-            <div key={exp.id} className="mb-5 pl-4" style={{ borderLeft: `2px solid ${lighten(accentColor, 0.2)}` }}>
+            <div key={exp.id} className="mb-5 pl-4" style={{ borderLeft: `2px solid ${lighten(accentColor, 0.2)}`, breakInside: 'avoid' }}>
               <div className="flex justify-between items-baseline">
                 <strong className="text-[12px] text-gray-800">{exp.role}</strong>
                 <span className="text-[9px] text-gray-400 font-medium tracking-wide">{exp.start_date} — {exp.current ? 'Present' : exp.end_date}</span>
@@ -60,8 +60,8 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
       )}
 
       {vis.skills && content.skills.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}` }}>Skills</h2>
+        <section className="mb-8" style={{ breakInside: 'avoid' }}>
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}`, breakAfter: 'avoid' }}>Skills</h2>
           <div className="flex flex-wrap gap-2">{content.skills.map((s, i) => (
             <span key={i} className="px-3 py-1 rounded-full text-[9px] font-medium tracking-wide" style={{ backgroundColor: lighten(accentColor, 0.1), color: accentColor }}>{s}</span>
           ))}</div>
@@ -69,11 +69,11 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
       )}
 
       {vis.projects && content.projects.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}` }}>Projects</h2>
+        <section className="mb-8" style={{ breakInside: 'auto' }}>
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}`, breakAfter: 'avoid' }}>Projects</h2>
           <div className="grid grid-cols-2 gap-4">
             {content.projects.map(p => (
-              <div key={p.id} className="p-3 rounded-lg" style={{ backgroundColor: lighten(accentColor, 0.05) }}>
+              <div key={p.id} className="p-3 rounded-lg" style={{ backgroundColor: lighten(accentColor, 0.05), breakInside: 'avoid' }}>
                 <div className="flex items-center gap-1.5">
                   <strong className="text-[11px]">{p.name}</strong>
                   {p.url && <ExternalLink size={8} className="text-gray-400" />}
@@ -86,8 +86,8 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
       )}
 
       {vis.education && content.education.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}` }}>Education</h2>
+        <section className="mb-8" style={{ breakInside: 'avoid' }}>
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-4 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}`, breakAfter: 'avoid' }}>Education</h2>
           {content.education.map(edu => (
             <div key={edu.id} className="mb-3 flex justify-between">
               <div>
@@ -100,11 +100,11 @@ export const ModernMinimal = ({ content, accentColor }: Props) => {
         </section>
       )}
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6" style={{ breakInside: 'avoid' }}>
         {vis.certifications && content.certifications.length > 0 && (
           <section>
-            <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-3 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}` }}>Certifications</h2>
-            {content.certifications.map(c => <div key={c.id} className="mb-1.5 text-[10px]"><strong>{c.name}</strong><div className="text-gray-500">{c.issuer}</div></div>)}
+            <h2 className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-3 pb-2" style={{ color: accentColor, borderBottom: `1px solid ${lighten(accentColor, 0.3)}`, breakAfter: 'avoid' }}>Certifications</h2>
+            {content.certifications.map(c => <div key={c.id} className="mb-1.5 text-[10px]" style={{ breakInside: 'avoid' }}><strong>{c.name}</strong><div className="text-gray-500">{c.issuer}</div></div>)}
           </section>
         )}
         {vis.languages && content.languages.length > 0 && (
