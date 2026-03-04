@@ -1,0 +1,1 @@
+UPDATE profiles SET subscription_status = 'pro' WHERE user_id = '2d5902aa-14d3-4fc7-941a-44482a716f08';
