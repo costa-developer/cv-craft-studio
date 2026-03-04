@@ -33,9 +33,12 @@ serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     if (customers.data.length === 0) {
-      // Update profile to free
-      await supabaseClient.from("profiles").update({ subscription_status: "free" }).eq("user_id", user.id);
-      return new Response(JSON.stringify({ subscribed: false }), {
+      // Only downgrade if not manually set to pro
+      const { data: profileData } = await supabaseClient.from("profiles").select("subscription_status").eq("user_id", user.id).single();
+      if (profileData?.subscription_status !== 'pro') {
+        await supabaseClient.from("profiles").update({ subscription_status: "free" }).eq("user_id", user.id);
+      }
+      return new Response(JSON.stringify({ subscribed: profileData?.subscription_status === 'pro' }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -44,11 +47,22 @@ serve(async (req) => {
     const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
     const hasActiveSub = subscriptions.data.length > 0;
 
-    // Update profile
-    await supabaseClient.from("profiles").update({
-      subscription_status: hasActiveSub ? "pro" : "free",
-      stripe_customer_id: customerId,
-    }).eq("user_id", user.id);
+    // Only update if there's an active subscription, don't downgrade manually set pro users
+    if (hasActiveSub) {
+      await supabaseClient.from("profiles").update({
+        subscription_status: "pro",
+        stripe_customer_id: customerId,
+      }).eq("user_id", user.id);
+    } else {
+      // Check if manually set to pro
+      const { data: profileData } = await supabaseClient.from("profiles").select("subscription_status").eq("user_id", user.id).single();
+      if (profileData?.subscription_status !== 'pro') {
+        await supabaseClient.from("profiles").update({
+          subscription_status: "free",
+          stripe_customer_id: customerId,
+        }).eq("user_id", user.id);
+      }
+    }
 
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,

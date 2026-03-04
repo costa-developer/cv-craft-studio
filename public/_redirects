@@ -1,0 +1,11 @@
+/*
+  Rewrite rules for SPA - handle client-side routing
+  All routes should serve index.html
+*/
+/editor/*  /index.html  200
+/dashboard  /index.html  200
+/login      /index.html  200
+/signup     /index.html  200
+/admin      /index.html  200
+/cv/*       /index.html  200
+/*          /index.html  200
